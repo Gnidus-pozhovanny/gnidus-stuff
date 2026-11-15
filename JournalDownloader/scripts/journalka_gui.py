@@ -9,11 +9,10 @@ import tkinter as tk
 from tkinter import filedialog, font, messagebox, ttk
 
 from download_top_homework import STATUSES, TASK_LIST_NAME, download_tasks, error_description, summary
+from journalka_credentials import SERVICE, delete_account, read_account, save_account
 from journalka_usage import report_config, send_login
 
 
-SERVICE = "Journalka Downloader"
-ACCOUNT = "saved-account"
 FILTERS = ((3, "Текущие"), (0, "Просроченные"), (5, "Удалённые"), (1, "Выполненные"), (2, "На проверке"))
 
 
@@ -37,25 +36,6 @@ def write_settings(folder, selected):
     path = settings_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"folder": str(folder), "statuses": selected}, ensure_ascii=False), encoding="utf-8")
-
-
-def vault():
-    if sys.platform == "win32":
-        from keyring.backends.Windows import WinVaultKeyring
-
-        return WinVaultKeyring()
-    from keyring.backends.SecretService import Keyring
-
-    return Keyring()
-
-
-def read_account():
-    saved = vault().get_password(SERVICE, ACCOUNT)
-    if saved:
-        username, password = json.loads(saved)
-        if isinstance(username, str) and isinstance(password, str):
-            return username, password
-    return None
 
 
 def apply_linux_theme(root):
@@ -196,10 +176,10 @@ class App:
     def change_remember(self):
         if not self.remember.get() and self.account_saved:
             try:
-                vault().delete_password(SERVICE, ACCOUNT)
+                delete_account()
             except Exception:
                 self.remember.set(True)
-                messagebox.showwarning(SERVICE, "Не удалось удалить данные из системного хранилища.")
+                messagebox.showwarning(SERVICE, "Не удалось удалить файл учётной записи.")
             else:
                 self.account_saved = False
 
@@ -260,7 +240,7 @@ class App:
         def on_login():
             if remember:
                 try:
-                    vault().set_password(SERVICE, ACCOUNT, json.dumps([username, password]))
+                    save_account(username, password)
                     self.events.put(("saved", True))
                 except Exception:
                     self.events.put(("vault-error", None))
@@ -326,7 +306,7 @@ class App:
             elif event == "vault-error":
                 self.remember.set(False)
                 if not self.closing:
-                    messagebox.showwarning(SERVICE, "Системное хранилище паролей недоступно. Новые данные не сохранены.")
+                    messagebox.showwarning(SERVICE, "Не удалось сохранить файл учётной записи.")
             elif event == "status" and not self.stop.is_set():
                 self.status.set(data)
             elif event == "progress" and not self.stop.is_set():

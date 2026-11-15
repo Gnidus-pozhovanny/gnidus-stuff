@@ -268,6 +268,7 @@ def render_condition(item: dict[str, Any], task_type: int, files: list[tuple[str
         f"- Тип: {'Лабораторная работа' if task_type == 1 else 'Домашнее задание'}",
         f"- Статус: {STATUS_NAMES.get(status, 'Не указан')}",
         f"- Предмет: {item.get('subjectName') or 'не указан'}",
+        f"- Группа: {item.get('groupName') or item.get('exportGroupId') or 'не указана'}",
         f"- Преподаватель: {item.get('teacherName') or 'не указан'}",
         f"- Выдано: {item.get('createdAt') or 'не указано'}",
         f"- Срок: {item.get('deadlineAt') or item.get('overdueAt') or 'не указан'}",
@@ -358,14 +359,15 @@ def write_task_list(output_root: Path, ordered: list[tuple[tuple[int, str], dict
                 "Лаб" if task_type == 1 else "ДЗ",
                 item.get("title"),
                 str(item.get("deadlineAt") or item.get("overdueAt") or "")[:10],
+                item.get("groupName") or item.get("exportGroupId"),
                 STATUS_NAMES[item["status"]],
                 item.get("id") or item.get("teacherWorkId") or task_id,
             )
             rows.append("| " + " | ".join(map(cell, row)) + " |")
         lines.extend([f"## {title} ({len(rows)})", ""])
         if rows:
-            lines.extend(["| Предмет | Тип | Задание | Срок | Статус | ID |",
-                          "| --- | --- | --- | --- | --- | --- |", *rows, ""])
+            lines.extend(["| Предмет | Тип | Задание | Срок | Группа | Статус | ID |",
+                          "| --- | --- | --- | --- | --- | --- | --- |", *rows, ""])
         else:
             lines.extend(["Нет заданий.", ""])
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=output_root, delete=False) as temp:
@@ -415,7 +417,7 @@ async def download_tasks(
             for task_type, statuses in requested.items():
                 for item in await fetch_tasks(client, group_id, task_type, statuses):
                     task_id = item["exportId"]
-                    all_tasks[(task_type, task_id)] = item
+                    all_tasks[(task_type, task_id)] = {**item, "exportGroupId": group_id}
             on_progress("Получение списка заданий", group_number, len(group_ids))
         ordered = sorted(all_tasks.items(), key=lambda pair: (str(pair[1].get("subjectName") or ""), str(pair[1].get("createdAt") or ""), pair[0][1]))
         if export_list:
