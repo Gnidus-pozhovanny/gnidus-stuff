@@ -1,3 +1,6 @@
 /JournalDownloader/journalka-account.json
 __pycache__/
 *.py[cod]
+
+# Local Journal Downloader account
+journalka-account.json
